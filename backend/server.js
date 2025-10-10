@@ -1,16 +1,33 @@
+// server.js
 const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
 const cors = require("cors");
+const mysql = require("mysql2");
+const nodemailer = require("nodemailer");
+const schedule = require("node-schedule");
+const mercadopago = require("mercadopago");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-//Envío de correos
+// -----------------------------
+// Conexión MySQL
+// -----------------------------
+const db = mysql.createConnection({
+  host: "localhost",
+  user: "root",
+  password: "anemSQLudg2025",
+  database: "residencial_db"
+});
 
+db.connect(err => {
+  if (err) console.error("❌ Error al conectar con MySQL:", err);
+  else console.log("✅ Conectado a la base de datos residencial_db");
+});
 
-const nodemailer = require("nodemailer");
-
+// -----------------------------
+// Nodemailer - recordatorios
+// -----------------------------
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -29,107 +46,122 @@ const sendPaymentReminderEmail = ({ nombre, email, monto, fecha }) => {
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) console.error("Error enviando correo:", error);
-    else console.log("Correo enviado a", email, info.response);
+    else console.log("📧 Correo enviado a", email, info.response);
   });
 };
 
+// Función de recordatorios
+const sendPaymentReminders = () => {
+  const sql = `
+    SELECT r.nombre_familia, h.nombre AS nombre_persona, h.email, p.monto, p.fecha_limite
+    FROM residencias r
+    JOIN habitantes h ON h.id_residencia = r.id_residencia
+    JOIN pagos_mensuales p ON p.id_residencia = r.id_residencia
+    WHERE p.estatus = 'Pendiente'
+  `;
+  db.query(sql, (err, results) => {
+    if (err) return console.error(err);
+    results.forEach(r => {
+      sendPaymentReminderEmail({
+        nombre: `${r.nombre_familia} - ${r.nombre_persona}`,
+        email: r.email,
+        monto: r.monto,
+        fecha: r.fecha_limite
+      });
+    });
+  });
+};
 
-const db = new sqlite3.Database(":memory:"); // Para demo, memoria. Puedes usar archivo .db
-
-// Crear tablas
-db.serialize(() => {
-  db.run(`CREATE TABLE residents (
-    id INTEGER PRIMARY KEY,
-    nombre TEXT,
-    apartamento TEXT,
-    telefono TEXT,
-    email TEXT
-  )`);
-
-  db.run(`CREATE TABLE payments (
-    id INTEGER PRIMARY KEY,
-    resident_id INTEGER,
-    monto REAL,
-    fecha TEXT,
-    estado TEXT,
-    FOREIGN KEY(resident_id) REFERENCES residents(id)
-  )`);
-
-  // Insertar datos de prueba
-  const residents = [
-    [1, "Juan Pérez", "101", "555-1234", "juan@mail.com"],
-    [2, "Ana López", "102", "555-5678", "ana@mail.com"],
-    [3, "Carlos Gómez", "103", "555-9012", "carlos@mail.com"],
-    [4, "Laura Martínez", "104", "555-3456", "laura@mail.com"],
-    [5, "Diego Ramírez", "105", "555-7890", "diego@mail.com"]
-  ];
-
-  const payments = [
-    [1, 1, 1000, "2025-10-01", "Pagado"],
-    [2, 2, 1200, "2025-10-02", "Pendiente"],
-    [3, 3, 900, "2025-10-01", "Pagado"],
-    [4, 4, 1100, "2025-10-03", "Pendiente"],
-    [5, 5, 950, "2025-10-02", "Pagado"]
-  ];
-
-  residents.forEach(r => db.run(`INSERT INTO residents VALUES (?,?,?,?,?)`, r));
-  payments.forEach(p => db.run(`INSERT INTO payments VALUES (?,?,?,?,?)`, p));
+// Programar recordatorios diarios 9:00 AM
+schedule.scheduleJob("0 9 * * *", () => {
+  console.log("⏰ Ejecutando recordatorios de pagos...");
+  sendPaymentReminders();
 });
 
+// -----------------------------
 // Endpoints
-app.get("/residents", (req, res) => {
-  db.all("SELECT * FROM residents", (err, rows) => {
-    if (err) return res.status(500).send(err);
-    res.json(rows);
-  });
-});
+// -----------------------------
 
-app.get("/payments", (req, res) => {
-  db.all("SELECT * FROM payments", (err, rows) => {
-    if (err) return res.status(500).send(err);
-    res.json(rows);
-  });
-});
-
-app.listen(3001, () => console.log("Backend corriendo en http://localhost:3001"));
-
-// Endpoint para registrar un pago
-app.post("/payments", (req, res) => {
-  const { resident_id, monto, estado } = req.body;
-  const fecha = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-
-  if (!resident_id || !monto || !estado) {
-    return res.status(400).json({ error: "Faltan datos" });
-  }
-
-  const sql = "INSERT INTO payments (resident_id, monto, fecha, estado) VALUES (?,?,?,?)";
-  db.run(sql, [resident_id, monto, fecha, estado], function(err) {
+// Obtener residencias
+app.get("/residencias", (req, res) => {
+  db.query("SELECT * FROM residencias", (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ id: this.lastID, resident_id, monto, fecha, estado });
+    res.json(results);
   });
 });
 
+// Obtener habitantes
+app.get("/habitantes", (req, res) => {
+  db.query("SELECT * FROM habitantes", (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
 
-// credenciales mercado pago
-const mercadopago = require("mercadopago");
+// Obtener pagos
+app.get("/pagos", (req, res) => {
+  db.query("SELECT * FROM pagos_mensuales", (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// Obtener emergencias
+app.get("/emergencias", (req, res) => {
+  db.query("SELECT * FROM emergencias", (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// Obtener votaciones
+app.get("/votaciones", (req, res) => {
+  db.query("SELECT * FROM votaciones", (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// Registrar pago
+app.post("/pagos", (req, res) => {
+  const { id_residencia, monto, fecha_generacion, fecha_limite, concepto, estatus, linea_captura, medio_pago } = req.body;
+
+  const sql = `
+    INSERT INTO pagos_mensuales
+      (id_residencia, monto, fecha_generacion, fecha_limite, concepto, estatus, linea_captura, medio_pago)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(sql, [id_residencia, monto, fecha_generacion, fecha_limite, concepto, estatus, linea_captura, medio_pago], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id: results.insertId, ...req.body });
+  });
+});
+
+// -----------------------------
+// Mercado Pago
+// -----------------------------
+// -----------------------------
+// Mercado Pago
+// -----------------------------
 
 // Configurar credenciales de sandbox
-// Configuración API
 mercadopago.configurations = {
   access_token: "TEST-8589744676726388-100318-8a92869490e0c2fbdf1ae0c622b5f04b-202623593"
 };
 
+// Endpoint para crear preferencia de pago
 app.post("/create_preference", async (req, res) => {
-  const { amount, resident_id } = req.body;
+  const { amount, id_residencia } = req.body;
 
-  if (!amount || !resident_id) {
+  if (!amount || !id_residencia) {
     return res.status(400).json({ error: "Faltan datos" });
   }
 
   const preference = {
     items: [
       {
-        title: `Pago de cuota - Residente ${resident_id}`,
+        title: `Pago de cuota - Residencia ${id_residencia}`,
         unit_price: parseFloat(amount),
         quantity: 1,
       },
@@ -140,6 +172,7 @@ app.post("/create_preference", async (req, res) => {
       pending: "http://localhost:5173/payment",
     },
     auto_return: "approved",
+    notification_url: "http://localhost:3001/webhook", // Para recibir notificaciones
   };
 
   try {
@@ -151,56 +184,52 @@ app.post("/create_preference", async (req, res) => {
   }
 });
 
-app.post("/webhook", express.json(), async (req, res) => {
+// Webhook de Mercado Pago
+app.post("/webhook", express.json(), (req, res) => {
   const payment = req.body;
 
-  // Verifica que sea un pago aprobado
+  // Verificar que sea un pago aprobado
   if (payment.type === "payment" && payment.data.status === "approved") {
-    const { amount, resident_id } = payment.data;
+    const { id_residencia, transaction_amount } = payment.data;
 
-    db.run(
-      "INSERT INTO payments (resident_id, monto, estado) VALUES (?, ?, ?)",
-      [resident_id, amount, "Pagado"],
-      function (err) {
-        if (err) console.error(err);
-      }
-    );
+    const sql = `
+      INSERT INTO pagos_mensuales (id_residencia, monto, estatus)
+      VALUES (?, ?, 'Pagado')
+    `;
+    db.query(sql, [id_residencia, transaction_amount], (err) => {
+      if (err) console.error("Error al registrar pago desde webhook:", err);
+    });
   }
 
   res.sendStatus(200);
 });
 
-//recordatorios de pagos
-const schedule = require("node-schedule");
 
-// Función para enviar recordatorios
-const sendPaymentReminders = () => {
-  db.all(
-    `SELECT r.nombre, r.email, p.monto, p.fecha
-     FROM residents r
-     JOIN payments p ON r.id = p.resident_id
-     WHERE p.estado = "Pendiente"`,
-    (err, rows) => {
-      if (err) return console.error("Error al obtener pagos pendientes:", err);
-
-      rows.forEach(({ nombre, email, monto, fecha }) => {
-        // Aquí puedes enviar correo real usando nodemailer
-        console.log(`📧 Recordatorio enviado a ${nombre} (${email}): 
-        Pago de $${monto} pendiente desde ${fecha}`);
-      });
-    }
-  );
-};
-
-// Programar recordatorios diarios a las 9:00 AM
-schedule.scheduleJob("0 9 * * *", () => {
-  console.log("⏰ Ejecutando recordatorios de pagos...");
-  sendPaymentReminders();
+// -----------------------------
+// Emergencias
+// -----------------------------
+app.post("/emergencias", (req, res) => {
+  const { id_residencia, fecha_solicitud, estatus } = req.body;
+  const sql = "INSERT INTO emergencias (id_residencia, fecha_solicitud, estatus) VALUES (?, ?, ?)";
+  db.query(sql, [id_residencia, fecha_solicitud, estatus], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id: results.insertId, ...req.body });
+  });
 });
 
+// -----------------------------
+// Votaciones
+// -----------------------------
+app.post("/votaciones", (req, res) => {
+  const { id_residencia, fecha_voto, concepto, voto } = req.body;
+  const sql = "INSERT INTO votaciones (id_residencia, fecha_voto, concepto, voto) VALUES (?, ?, ?, ?)";
+  db.query(sql, [id_residencia, fecha_voto, concepto, voto], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id: results.insertId, ...req.body });
+  });
+});
 
-// --- Llamada manual para prueba ---
-sendPaymentReminders();
-
-// --- Luego levantamos el servidor ---
+// -----------------------------
+// Iniciar servidor
+// -----------------------------
 app.listen(3001, () => console.log("Backend corriendo en http://localhost:3001"));
