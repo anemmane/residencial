@@ -1,82 +1,118 @@
+// src/pages/Dashboard.jsx
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 
-export default function Dashboard() {
-  const [residencias, setResidencias] = useState([]);
-  const [habitantes, setHabitantes] = useState([]);
+export default function Dashboard({ user }) {
   const [pagos, setPagos] = useState([]);
   const [emergencias, setEmergencias] = useState([]);
-  const [votaciones, setVotaciones] = useState([]);
+  const [loadingPagos, setLoadingPagos] = useState(true);
+  const [loadingEmergencias, setLoadingEmergencias] = useState(true);
+  const [errorPagos, setErrorPagos] = useState(null);
+  const [errorEmergencias, setErrorEmergencias] = useState(null);
 
   useEffect(() => {
-    fetch("http://localhost:3001/residencias")
-      .then(res => res.json())
-      .then(data => setResidencias(data));
+    const config = {
+      headers: {
+        Authorization: `Bearer ${user.token}`,
+      },
+    };
 
-    fetch("http://localhost:3001/habitantes")
-      .then(res => res.json())
-      .then(data => setHabitantes(data));
+    // Obtener pagos
+    axios
+      .get("http://localhost:3001/pagos", config)
+      .then(res => {
+        setPagos(res.data);
+        setLoadingPagos(false);
+      })
+      .catch(err => {
+        setErrorPagos(err.response?.data?.error || err.message);
+        setLoadingPagos(false);
+      });
 
-    fetch("http://localhost:3001/pagos")
-      .then(res => res.json())
-      .then(data => setPagos(data));
+    // Obtener emergencias
+    axios
+      .get("http://localhost:3001/emergencias", config)
+      .then(res => {
+        setEmergencias(res.data);
+        setLoadingEmergencias(false);
+      })
+      .catch(err => {
+        setErrorEmergencias(err.response?.data?.error || err.message);
+        setLoadingEmergencias(false);
+      });
+  }, [user]);
 
-    fetch("http://localhost:3001/emergencias")
-      .then(res => res.json())
-      .then(data => setEmergencias(data));
-
-    fetch("http://localhost:3001/votaciones")
-      .then(res => res.json())
-      .then(data => setVotaciones(data));
-  }, []);
+  const formatDate = dateStr => new Date(dateStr).toLocaleDateString();
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Panel Administrativo</h2>
+    <div className="dashboard-container">
+      <h1>Panel Residencial</h1>
 
-      <h3 className="text-xl font-semibold mt-4">Residencias</h3>
-      <ul className="list-disc ml-6">
-        {residencias.map(r => (
-          <li key={r.id_residencia}>
-            {r.nombre_familia} - Dirección: {r.direccion} - Registrada: {r.fecha_registro}
-          </li>
-        ))}
-      </ul>
+      <section className="pagos-section">
+        <h2>Pagos</h2>
+        {loadingPagos ? (
+          <p>Cargando pagos...</p>
+        ) : errorPagos ? (
+          <p style={{ color: "red" }}>Error: {errorPagos}</p>
+        ) : pagos.length === 0 ? (
+          <p>No hay pagos registrados</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Concepto</th>
+                <th>Monto</th>
+                <th>Fecha Generación</th>
+                <th>Fecha Límite</th>
+                <th>Estatus</th>
+                <th>Línea de Captura</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagos.map(p => (
+                <tr key={p.id_pago}>
+                  <td>{p.concepto}</td>
+                  <td>${p.monto}</td>
+                  <td>{formatDate(p.fecha_generacion)}</td>
+                  <td>{formatDate(p.fecha_limite)}</td>
+                  <td>{p.estatus}</td>
+                  <td>{p.linea_captura}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
 
-      <h3 className="text-xl font-semibold mt-4">Habitantes</h3>
-      <ul className="list-disc ml-6">
-        {habitantes.map(h => (
-          <li key={h.id_habitante}>
-            {h.nombre} ({h.fecha_nacimiento}) - Status: {h.status} - Residencia: {h.id_residencia}
-          </li>
-        ))}
-      </ul>
-
-      <h3 className="text-xl font-semibold mt-4">Pagos Mensuales</h3>
-      <ul className="list-disc ml-6">
-        {pagos.map(p => (
-          <li key={p.id_pago}>
-            Residencia ID: {p.id_residencia}, Monto: ${p.monto}, Vencimiento: {p.fecha_limite}, Estado: {p.estatus}, Concepto: {p.concepto}
-          </li>
-        ))}
-      </ul>
-
-      <h3 className="text-xl font-semibold mt-4">Emergencias</h3>
-      <ul className="list-disc ml-6">
-        {emergencias.map(e => (
-          <li key={e.id_emergencia}>
-            Residencia ID: {e.id_residencia}, Fecha: {e.fecha_solicitud}, Estado: {e.estatus}
-          </li>
-        ))}
-      </ul>
-
-      <h3 className="text-xl font-semibold mt-4">Votaciones</h3>
-      <ul className="list-disc ml-6">
-        {votaciones.map(v => (
-          <li key={v.id_votacion}>
-            Residencia ID: {v.id_residencia}, Fecha: {v.fecha_voto}, Concepto: {v.concepto}, Voto: {v.voto}
-          </li>
-        ))}
-      </ul>
+      <section className="emergencias-section">
+        <h2>Emergencias</h2>
+        {loadingEmergencias ? (
+          <p>Cargando emergencias...</p>
+        ) : errorEmergencias ? (
+          <p style={{ color: "red" }}>Error: {errorEmergencias}</p>
+        ) : emergencias.length === 0 ? (
+          <p>No hay emergencias registradas</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Descripción</th>
+                <th>Fecha</th>
+                <th>Estatus</th>
+              </tr>
+            </thead>
+            <tbody>
+              {emergencias.map(e => (
+                <tr key={e.id_emergencia}>
+                  <td>{e.descripcion}</td>
+                  <td>{formatDate(e.fecha_solicitud)}</td>
+                  <td>{e.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
     </div>
   );
 }

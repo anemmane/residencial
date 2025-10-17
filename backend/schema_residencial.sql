@@ -1,231 +1,98 @@
-// server.js
-const express = require("express");
-const mysql = require("mysql2");
-const cors = require("cors");
-const nodemailer = require("nodemailer");
-const schedule = require("node-schedule");
-const mercadopago = require("mercadopago");
+-- ======================================================
+-- SCHEMA: residencial_db
+-- Proyecto: Sistema Residencial
+-- Autor: Manu Entz
+-- Fecha: 2025-10-14
+-- Descripción: Script para crear la base de datos y tablas
+-- ======================================================
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+-- 1️⃣ Crear base de datos
+DROP DATABASE IF EXISTS residencial_db;
+CREATE DATABASE residencial_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE residencial_db;
 
-// ----------------------------
-// Conexión a MySQL
-// ----------------------------
-const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "anemSQLudg2025",
-  database: "residencial_db"
-});
+-- 2️⃣ Tabla: residencias
+CREATE TABLE residencias (
+  id_residencia INT AUTO_INCREMENT PRIMARY KEY,
+  nombre_familia VARCHAR(100) NOT NULL,
+  direccion VARCHAR(255) NOT NULL,
+  fecha_registro DATE NOT NULL
+);
 
-db.connect(err => {
-  if (err) console.error("❌ Error al conectar con MySQL:", err);
-  else console.log("✅ Conectado a la base de datos residencial_db");
-});
+-- 3️⃣ Tabla: habitantes
+CREATE TABLE habitantes (
+  id_habitante INT AUTO_INCREMENT PRIMARY KEY,
+  id_residencia INT NOT NULL,
+  nombre VARCHAR(100) NOT NULL,
+  fecha_nacimiento DATE,
+  status ENUM('Viviendo', 'Ausente', 'Ex-residente') DEFAULT 'Viviendo',
+  FOREIGN KEY (id_residencia) REFERENCES residencias(id_residencia)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
 
-// ----------------------------
-// Nodemailer para recordatorios
-// ----------------------------
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: "tu-email@gmail.com",
-    pass: "tu-contraseña-o-app-password"
-  }
-});
+-- 4️⃣ Tabla: pagos_mensuales
+CREATE TABLE pagos_mensuales (
+  id_pago INT AUTO_INCREMENT PRIMARY KEY,
+  id_residencia INT NOT NULL,
+  monto DECIMAL(10,2) NOT NULL,
+  fecha_generacion DATE NOT NULL,
+  fecha_limite DATE,
+  concepto VARCHAR(200),
+  estatus ENUM('Pendiente', 'Pagado', 'Vencido') DEFAULT 'Pendiente',
+  linea_captura VARCHAR(100),
+  medio_pago ENUM('Efectivo', 'Transferencia', 'En línea', 'Otro') DEFAULT 'Efectivo',
+  FOREIGN KEY (id_residencia) REFERENCES residencias(id_residencia)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
 
-const sendPaymentReminderEmail = ({ nombre, email, monto, fecha }) => {
-  const mailOptions = {
-    from: "tu-email@gmail.com",
-    to: email,
-    subject: "Recordatorio de pago pendiente",
-    text: `Hola ${nombre}, tienes un pago pendiente de $${monto} con fecha ${fecha}. Por favor realiza tu pago a tiempo.`
-  };
+-- 5️⃣ Tabla: emergencias
+CREATE TABLE emergencias (
+  id_emergencia INT AUTO_INCREMENT PRIMARY KEY,
+  id_residencia INT NOT NULL,
+  descripcion TEXT NOT NULL,
+  fecha_solicitud DATE NOT NULL,
+  status ENUM('En proceso', 'Atendida', 'Cancelada') DEFAULT 'En proceso',
+  FOREIGN KEY (id_residencia) REFERENCES residencias(id_residencia)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
 
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) console.error("Error enviando correo:", error);
-    else console.log("Correo enviado a", email, info.response);
-  });
-};
+-- 6️⃣ Tabla: votaciones
+CREATE TABLE votaciones (
+  id_votacion INT AUTO_INCREMENT PRIMARY KEY,
+  id_residencia INT NOT NULL,
+  concepto VARCHAR(200) NOT NULL,
+  fecha DATE NOT NULL,
+  voto ENUM('A favor', 'En contra', 'Abstención') NOT NULL,
+  FOREIGN KEY (id_residencia) REFERENCES residencias(id_residencia)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
 
-// ----------------------------
-// Endpoints CRUD
-// ----------------------------
+-- ======================================================
+-- 7️⃣ Datos iniciales (opcional para pruebas)
+-- ======================================================
 
-// -- Residencias --
-app.get("/residencias", (req, res) => {
-  db.query("SELECT * FROM residencias", (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
-});
+INSERT INTO residencias (nombre_familia, direccion, fecha_registro)
+VALUES
+('Familia López', 'Calle 1 #45', CURDATE()),
+('Familia Ramírez', 'Calle 2 #67', CURDATE()),
+('Familia González', 'Calle 3 #89', CURDATE());
 
-app.post("/residencias", (req, res) => {
-  const { nombre_familia, direccion } = req.body;
-  const fecha_registro = new Date().toISOString().split("T")[0];
-  db.query(
-    "INSERT INTO residencias (nombre_familia, direccion, fecha_registro) VALUES (?,?,?)",
-    [nombre_familia, direccion, fecha_registro],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id_residencia: result.insertId, nombre_familia, direccion, fecha_registro });
-    }
-  );
-});
+INSERT INTO habitantes (id_residencia, nombre, fecha_nacimiento, status)
+VALUES
+(1, 'Carlos López', '1980-05-14', 'Viviendo'),
+(1, 'María López', '1983-07-22', 'Viviendo'),
+(2, 'José Ramírez', '1975-10-10', 'Viviendo');
 
-// -- Habitantes --
-app.get("/habitantes/:id_residencia", (req, res) => {
-  const { id_residencia } = req.params;
-  db.query("SELECT * FROM habitantes WHERE id_residencia = ?", [id_residencia], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
-});
+INSERT INTO pagos_mensuales (id_residencia, monto, fecha_generacion, fecha_limite, concepto, estatus, linea_captura, medio_pago)
+VALUES
+(1, 800.00, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 10 DAY), 'Cuota mantenimiento', 'Pendiente', 'LC12345', 'Efectivo'),
+(2, 950.00, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 15 DAY), 'Mantenimiento jardín', 'Pendiente', 'LC12346', 'Transferencia');
 
-app.post("/habitantes", (req, res) => {
-  const { id_residencia, nombre, fecha_nacimiento, status } = req.body;
-  db.query(
-    "INSERT INTO habitantes (id_residencia, nombre, fecha_nacimiento, status) VALUES (?,?,?,?)",
-    [id_residencia, nombre, fecha_nacimiento, status || "Viviendo"],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id_habitante: result.insertId, id_residencia, nombre, fecha_nacimiento, status });
-    }
-  );
-});
+INSERT INTO emergencias (id_residencia, descripcion, fecha_solicitud, status)
+VALUES
+(1, 'Fuga de agua en la calle principal', CURDATE(), 'En proceso');
 
-// -- Pagos mensuales --
-app.get("/pagos/:id_residencia", (req, res) => {
-  const { id_residencia } = req.params;
-  db.query("SELECT * FROM pagos_mensuales WHERE id_residencia = ?", [id_residencia], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
-});
-
-app.post("/pagos", (req, res) => {
-  const { id_residencia, monto, fecha_limite, concepto, estatus, linea_captura, medio_pago } = req.body;
-  const fecha_generacion = new Date().toISOString().split("T")[0];
-
-  db.query(
-    "INSERT INTO pagos_mensuales (id_residencia, monto, fecha_generacion, fecha_limite, concepto, estatus, linea_captura, medio_pago) VALUES (?,?,?,?,?,?,?,?)",
-    [id_residencia, monto, fecha_generacion, fecha_limite, concepto, estatus || "Pendiente", linea_captura, medio_pago],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id_pago: result.insertId, id_residencia, monto, fecha_generacion, fecha_limite, concepto, estatus, linea_captura, medio_pago });
-    }
-  );
-});
-
-// -- Emergencias --
-app.get("/emergencias/:id_residencia", (req, res) => {
-  db.query("SELECT * FROM emergencias WHERE id_residencia = ?", [req.params.id_residencia], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
-});
-
-app.post("/emergencias", (req, res) => {
-  const { id_residencia, descripcion, status } = req.body;
-  const fecha_solicitud = new Date().toISOString().split("T")[0];
-  db.query(
-    "INSERT INTO emergencias (id_residencia, descripcion, fecha_solicitud, status) VALUES (?,?,?,?)",
-    [id_residencia, descripcion, fecha_solicitud, status || "En proceso"],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id_emergencia: result.insertId, id_residencia, descripcion, fecha_solicitud, status });
-    }
-  );
-});
-
-// -- Votaciones --
-app.get("/votaciones", (req, res) => {
-  db.query("SELECT * FROM votaciones", (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
-});
-
-app.post("/votaciones", (req, res) => {
-  const { id_residencia, concepto, voto } = req.body;
-  const fecha = new Date().toISOString().split("T")[0];
-  db.query(
-    "INSERT INTO votaciones (id_residencia, concepto, fecha, voto) VALUES (?,?,?,?)",
-    [id_residencia, concepto, fecha, voto],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id_votacion: result.insertId, id_residencia, concepto, fecha, voto });
-    }
-  );
-});
-
-// ----------------------------
-// Mercado Pago
-// ----------------------------
-mercadopago.configurations.setAccessToken("TEST-8589744676726388-100318-8a92869490e0c2fbdf1ae0c622b5f04b-202623593");
-
-app.post("/create_preference", async (req, res) => {
-  const { amount, id_residencia } = req.body;
-  if (!amount || !id_residencia) return res.status(400).json({ error: "Faltan datos" });
-
-  const preference = {
-    items: [{ title: `Pago de cuota - Residencia ${id_residencia}`, unit_price: parseFloat(amount), quantity: 1 }],
-    back_urls: { success: "http://localhost:5173/payment", failure: "http://localhost:5173/payment", pending: "http://localhost:5173/payment" },
-    auto_return: "approved"
-  };
-
-  try {
-    const response = await mercadopago.preferences.create(preference);
-    res.json({ id: response.body.id });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error creando preferencia" });
-  }
-});
-
-// ----------------------------
-// Webhook de pagos
-// ----------------------------
-app.post("/webhook", express.json(), (req, res) => {
-  const payment = req.body;
-  if (payment.type === "payment" && payment.data.status === "approved") {
-    const { amount, id_residencia } = payment.data;
-    db.query(
-      "INSERT INTO pagos_mensuales (id_residencia, monto, fecha_generacion, estatus, medio_pago) VALUES (?, ?, CURDATE(), 'Pagado', 'En línea')",
-      [id_residencia, amount],
-      (err) => { if (err) console.error(err); }
-    );
-  }
-  res.sendStatus(200);
-});
-
-// ----------------------------
-// Recordatorios de pagos
-// ----------------------------
-const sendPaymentReminders = () => {
-  const sql = `
-    SELECT r.nombre_familia, r.direccion, p.monto, p.fecha_limite
-    FROM residencias r
-    JOIN pagos_mensuales p ON r.id_residencia = p.id_residencia
-    WHERE p.estatus = 'Pendiente'
-  `;
-  db.query(sql, (err, rows) => {
-    if (err) return console.error(err);
-
-    rows.forEach(({ nombre_familia, direccion, monto, fecha_limite }) => {
-      console.log(`📧 Recordatorio a ${nombre_familia} (${direccion}) - Pago pendiente $${monto}, fecha límite: ${fecha_limite}`);
-      // sendPaymentReminderEmail({ nombre: nombre_familia, email: direccion, monto, fecha: fecha_limite });
-    });
-  });
-};
-
-// Ejecutar recordatorios todos los días a las 9:00 AM
-schedule.scheduleJob("0 9 * * *", () => {
-  console.log("⏰ Ejecutando recordatorios de pagos...");
-  sendPaymentReminders();
-});
-
-// --- Servidor
-app.listen(3001, () => console.log("Backend corriendo en http://localhost:3001"));
+INSERT INTO votaciones (id_residencia, concepto, fecha, voto)
+VALUES
+(1, 'Cambio de portón principal', CURDATE(), 'A favor'),
+(2, 'Cambio de portón principal', CURDATE(), 'En contra');
