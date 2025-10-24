@@ -1,12 +1,11 @@
 // ======================================================
-// 🌐 SERVER.JS — Residencial App (Sandbox)
+// 🌐 server.js — Residencial App (Sandbox)
 // ======================================================
 import express from "express";
 import cors from "cors";
 import mysql from "mysql2";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import mercadopago from "mercadopago";
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
@@ -19,13 +18,6 @@ app.use(express.json());
 // 🔐 Configuración general
 // ======================================================
 const SECRET = "clave_secreta_segura";
-
-// ======================================================
-// 💳 Configurar Mercado Pago Sandbox
-// ======================================================
-mercadopago.configure({
-  access_token: "TEST-8589744676726388-100318-8a92869490e0c2fbdf1ae0c622b5f04b-202623593",
-});
 
 // ======================================================
 // 🗄️ Conexión MySQL
@@ -96,52 +88,46 @@ app.post("/login", (req, res) => {
 });
 
 // ======================================================
-// 💰 CREAR PREFERENCIA DE PAGO Sandbox
+// 💰 CREAR PREFERENCIA DE PAGO SIMULADA
 // ======================================================
 app.post("/crear-preferencia", verificarToken, async (req, res) => {
-  const { monto, concepto, id_residencia } = req.body;
+  const { monto, concepto, id_residencia, medio_pago } = req.body;
+
   if (!monto || !concepto || !id_residencia)
     return res.status(400).json({ error: "Faltan datos para generar el pago" });
 
+  // Validar medio_pago según ENUM de la base de datos
+  const medios_validos = ["Efectivo", "Transferencia", "En línea", "Otro", "Tarjeta"];
+  const medio_pago_valido = medios_validos.includes(medio_pago) ? medio_pago : "Otro";
+
   const linea_captura = "LC" + Date.now() + "-" + id_residencia;
 
-  const preference = {
-    items: [
-      {
-        title: concepto,
-        unit_price: parseFloat(monto),
-        quantity: 1,
-      },
-    ],
-    back_urls: {
-      success: "http://localhost:5173/payment-success",
-      failure: "http://localhost:5173/payment-failure",
-      pending: "http://localhost:5173/payment-pending",
-    },
-    auto_return: "approved",
-    metadata: { id_residencia, linea_captura },
-  };
-
   try {
-    const response = await mercadopago.preferences.create(preference);
-
     const sql = `
       INSERT INTO pagos_mensuales 
-      (id_residencia, concepto, monto, linea_captura, estatus, fecha_generacion)
-      VALUES (?, ?, ?, ?, ?, NOW())
+      (id_residencia, concepto, monto, linea_captura, estatus, fecha_generacion, medio_pago)
+      VALUES (?, ?, ?, ?, ?, NOW(), ?)
     `;
-    db.query(sql, [id_residencia, concepto, monto, linea_captura, "Pendiente"], (err) => {
-      if (err) {
-        console.error("❌ Error al insertar el pago:", err);
-        return res.status(500).json({ error: "Error al registrar el pago" });
-      }
 
-      res.json({
-        id_preference: response.body.id,
-        init_point: response.body.init_point,
-        linea_captura,
-      });
-    });
+    db.query(
+      sql,
+      [id_residencia, concepto, monto, linea_captura, "Pendiente", medio_pago_valido],
+      (err) => {
+        if (err) {
+          console.error("❌ Error al insertar el pago:", err);
+          return res.status(500).json({ error: "Error al registrar el pago" });
+        }
+
+        // Respuesta simulada de preferencia de pago
+        const preferenceSimulada = {
+          id_preference: "SIMULADA_" + Date.now(),
+          init_point: `http://localhost:5173/payment-simulado/${linea_captura}`,
+          linea_captura,
+        };
+
+        res.json(preferenceSimulada);
+      }
+    );
   } catch (error) {
     console.error("❌ Error al crear preferencia:", error);
     res.status(500).json({ error: "Error al crear preferencia de pago" });
@@ -149,7 +135,7 @@ app.post("/crear-preferencia", verificarToken, async (req, res) => {
 });
 
 // ======================================================
-// 🧾 VERIFICAR PAGO Y GENERAR PDF (Sandbox)
+// 🧾 VERIFICAR PAGO Y GENERAR PDF
 // ======================================================
 app.get("/verificar-pago/:linea_captura", verificarToken, (req, res) => {
   const { linea_captura } = req.params;
@@ -176,6 +162,7 @@ app.get("/verificar-pago/:linea_captura", verificarToken, (req, res) => {
     pdf.text(`Concepto: ${pago.concepto}`);
     pdf.text(`Estatus: ${pago.estatus}`);
     pdf.text(`Fecha: ${new Date().toLocaleString()}`);
+    pdf.text(`Método de pago: ${pago.medio_pago}`);
     pdf.end();
 
     res.download(filePath);
@@ -198,6 +185,54 @@ app.get("/pagos", verificarToken, (req, res) => {
   sql += " ORDER BY fecha_generacion DESC";
   db.query(sql, params, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// ======================================================
+// 🚨 CONSULTAR EMERGENCIAS
+// ======================================================
+app.get("/emergencias", verificarToken, (req, res) => {
+  const { rol, id_residencia } = req.user;
+  let sql = "SELECT * FROM emergencias";
+  const params = [];
+
+  if (rol !== "admin") {
+    sql += " WHERE id_residencia = ?";
+    params.push(id_residencia);
+  }
+
+  sql += " ORDER BY fecha_solicitud DESC";
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error("Error al obtener emergencias:", err);
+      return res.status(500).json({ error: "Error al obtener emergencias" });
+    }
+    res.json(results);
+  });
+});
+
+// ======================================================
+// 🗳️ CONSULTAR VOTACIONES
+// ======================================================
+app.get("/votaciones", verificarToken, (req, res) => {
+  const { rol, id_residencia } = req.user;
+  let sql = "SELECT * FROM votaciones";
+  const params = [];
+
+  if (rol !== "admin") {
+    sql += " WHERE id_residencia = ?";
+    params.push(id_residencia);
+  }
+
+  sql += " ORDER BY fecha_inicio DESC";
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error("Error al obtener votaciones:", err);
+      return res.status(500).json({ error: "Error al obtener votaciones" });
+    }
     res.json(results);
   });
 });
