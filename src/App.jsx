@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Routes, Route, Link, useNavigate } from "react-router-dom";
+import { Routes, Route, useNavigate } from "react-router-dom";
+import styled from "styled-components";
+
 import Dashboard from "./pages/Dashboard.jsx";
 import PaymentPage from "./pages/PaymentPage.jsx";
 import EmergencyPage from "./pages/EmergencyPage.jsx";
 import VotacionesPage from "./pages/VotacionesPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
+import Menu from "./components/Menu.jsx"; // tu menú estilizado
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -21,39 +24,74 @@ export default function App() {
     navigate("/");
   };
 
+  if (!user) {
+    // Página de login ocupa todo el ancho
+    return <LoginPage setUser={setUser} />;
+  }
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-blue-700 p-4 text-white flex justify-between">
-        <h1 className="font-bold">Residencial App</h1>
-        <div className="space-x-4">
-          {user ? (
-            <>
-              {user.rol === "admin" && <Link to="/dashboard">Panel</Link>}
-              {user.rol === "usuario" && <Link to="/payment">Mis Pagos</Link>}
-              <Link to="/emergency" className="text-red-400 font-bold">Emergencias</Link>
-              <Link to="/votaciones" className="text-yellow-300 font-bold">Votaciones</Link>
-              <button onClick={logout} className="ml-4 bg-red-500 px-2 py-1 rounded">Cerrar sesión</button>
-            </>
-          ) : (
-            <Link to="/">Inicio de sesión</Link>
-          )}
-        </div>
-      </nav>
-      <main className="p-4">
+    <AppContainer>
+      {/* Menú lateral */}
+      <Menu user={user} />
+
+      {/* Contenido principal */}
+      <Content>
+        <Header>
+          <h1>Residencial App</h1>
+          <LogoutButton onClick={logout}>Cerrar sesión</LogoutButton>
+        </Header>
+
         <Routes>
-          {!user ? (
-            <Route path="/*" element={<LoginPage setUser={setUser} />} />
-          ) : (
-            <>
-              {user.rol === "admin" && <Route path="/dashboard" element={<Dashboard user={user} />} />}
-              {user.rol === "usuario" && <Route path="/payment" element={<PaymentPage user={user} />} />}
-              <Route path="/emergency" element={<EmergencyPage user={user} />} />
-              <Route path="/votaciones" element={<VotacionesPage user={user} />} />
-              <Route path="*" element={user.rol === "admin" ? <Dashboard user={user} /> : <PaymentPage user={user} />} />
-            </>
-          )}
+          {user.rol === "admin" && <Route path="/dashboard" element={<Dashboard user={user} />} />}
+          {user.rol === "usuario" && <Route path="/payment" element={<PaymentPage user={user} />} />}
+          <Route path="/emergency" element={<EmergencyPage user={user} />} />
+          <Route path="/votaciones" element={<VotacionesPage user={user} />} />
+          <Route
+            path="*"
+            element={user.rol === "admin" ? <Dashboard user={user} /> : <PaymentPage user={user} />}
+          />
         </Routes>
-      </main>
-    </div>
+      </Content>
+    </AppContainer>
   );
 }
+
+// 🎨 --- Estilos con styled-components
+const AppContainer = styled.div`
+  display: flex;
+  min-height: 100vh;
+`;
+
+const Content = styled.div`
+  flex: 1;
+  padding: 2rem;
+  background: #e8eaf6;
+`;
+
+const Header = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+
+  h1 {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #3949ab;
+  }
+`;
+
+const LogoutButton = styled.button`
+  background: #f44336;
+  color: #fff;
+  font-weight: bold;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: #d32f2f;
+  }
+`;

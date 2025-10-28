@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import styled, { keyframes } from "styled-components";
 
 export default function PaymentPage({ user }) {
   const [pagos, setPagos] = useState([]);
@@ -13,7 +14,6 @@ export default function PaymentPage({ user }) {
     cvv: "",
   });
 
-  // 🔹 Cargar pagos al iniciar la página
   useEffect(() => {
     axios
       .get("http://localhost:3001/pagos", {
@@ -29,19 +29,16 @@ export default function PaymentPage({ user }) {
       });
   }, [user.token]);
 
-  // 🔹 Abrir modal con datos del pago seleccionado
   const abrirModal = (pago) => {
     setSelectedPago(pago);
     setModalOpen(true);
   };
 
-  // 🔹 Cerrar modal
   const cerrarModal = () => {
     setModalOpen(false);
     setFormData({ nombre: "", numeroTarjeta: "", fecha: "", cvv: "" });
   };
 
-  // 🔹 Simular el pago
   const handlePagoSimulado = async (e) => {
     e.preventDefault();
 
@@ -52,16 +49,14 @@ export default function PaymentPage({ user }) {
         id_residencia: user.id_residencia,
       };
 
-      const res = await axios.post("http://localhost:3001/crear-preferencia", body, {
+      await axios.post("http://localhost:3001/crear-preferencia", body, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
 
-      console.log("Pago simulado realizado:", res.data);
       alert("✅ Pago simulado realizado con éxito");
 
       cerrarModal();
 
-      // Actualizar lista de pagos
       setPagos((prev) =>
         prev.map((p) =>
           p.linea_captura === selectedPago.linea_captura
@@ -75,7 +70,6 @@ export default function PaymentPage({ user }) {
     }
   };
 
-  // 🔹 Descargar PDF del pago
   const handleVerPDF = async (linea_captura) => {
     try {
       const res = await axios.get(
@@ -95,160 +89,239 @@ export default function PaymentPage({ user }) {
     }
   };
 
-  if (loading) return <p className="text-center mt-10">Cargando pagos...</p>;
+  if (loading) return <CenteredText>Cargando pagos...</CenteredText>;
   if (pagos.length === 0)
-    return <p className="text-center mt-10 text-gray-500">No hay pagos pendientes</p>;
+    return <CenteredText>No hay pagos pendientes</CenteredText>;
 
   return (
-    <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <Container>
       {pagos.map((pago) => (
-        <div
-          key={pago.linea_captura}
-          className="card bg-base-100 shadow-xl border border-gray-200"
-        >
-          <div className="card-body">
-            <h2 className="card-title">{pago.concepto}</h2>
-            <p>
-              <span className="font-semibold">Monto:</span> ${pago.monto}
-            </p>
-            <p>
-              <span className="font-semibold">Fecha:</span>{" "}
-              {new Date(pago.fecha_generacion).toLocaleDateString()}
-            </p>
-            <p>
-              <span className="font-semibold">Línea de captura:</span>{" "}
-              {pago.linea_captura}
-            </p>
-            <p>
-              <span className="font-semibold">Estatus:</span>{" "}
-              <span
-                className={`badge ${
-                  pago.estatus === "Pagado"
-                    ? "badge-success"
-                    : pago.estatus === "Pendiente"
-                    ? "badge-warning"
-                    : "badge-error"
-                }`}
-              >
-                {pago.estatus}
-              </span>
-            </p>
-            <div className="card-actions mt-4">
+        <Card key={pago.linea_captura}>
+          <CardBody>
+            <CardTitle>{pago.concepto}</CardTitle>
+            <Info><strong>Monto:</strong> ${pago.monto}</Info>
+            <Info><strong>Fecha:</strong> {new Date(pago.fecha_generacion).toLocaleDateString()}</Info>
+            <Info><strong>Línea de captura:</strong> {pago.linea_captura}</Info>
+            <Info>
+              <strong>Estatus:</strong>{" "}
+              <StatusBadge status={pago.estatus}>{pago.estatus}</StatusBadge>
+            </Info>
+            <Actions>
               {pago.estatus === "Pendiente" && (
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => abrirModal(pago)}
-                >
-                  Pagar
-                </button>
+                <Button primary onClick={() => abrirModal(pago)}>Pagar</Button>
               )}
-              <button
-                className="btn btn-outline btn-sm"
-                onClick={() => handleVerPDF(pago.linea_captura)}
-              >
-                Descargar PDF
-              </button>
-            </div>
-          </div>
-        </div>
+              <Button onClick={() => handleVerPDF(pago.linea_captura)}>Descargar PDF</Button>
+            </Actions>
+          </CardBody>
+        </Card>
       ))}
 
-{/* 🔹 Modal de pago simulado */}
-{modalOpen && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40">
-    <div
-      className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 transform transition-all duration-300 scale-100 opacity-100 animate-fadeIn"
-      style={{
-        animation: "fadeIn 0.3s ease-out, zoomIn 0.3s ease-out",
-      }}
-    >
-      <h2 className="text-xl font-semibold mb-4 text-center text-gray-700">
-        Pago simulado
-      </h2>
+      {modalOpen && (
+        <ModalBackdrop>
+          <ModalCard>
+            <ModalTitle>Pago simulado</ModalTitle>
+            <Form onSubmit={handlePagoSimulado}>
+              <FormGroup>
+                <Label>Nombre en la tarjeta</Label>
+                <Input
+                  type="text"
+                  value={formData.nombre}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                  required
+                />
+              </FormGroup>
 
-      <form onSubmit={handlePagoSimulado} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-600">
-            Nombre en la tarjeta
-          </label>
-          <input
-            type="text"
-            value={formData.nombre}
-            onChange={(e) =>
-              setFormData({ ...formData, nombre: e.target.value })
-            }
-            required
-            className="input input-bordered w-full bg-gray-50"
-          />
-        </div>
+              <FormGroup>
+                <Label>Número de tarjeta</Label>
+                <Input
+                  type="text"
+                  maxLength="16"
+                  value={formData.numeroTarjeta}
+                  onChange={(e) => setFormData({ ...formData, numeroTarjeta: e.target.value })}
+                  required
+                />
+              </FormGroup>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-600">
-            Número de tarjeta
-          </label>
-          <input
-            type="text"
-            maxLength="16"
-            value={formData.numeroTarjeta}
-            onChange={(e) =>
-              setFormData({ ...formData, numeroTarjeta: e.target.value })
-            }
-            required
-            className="input input-bordered w-full bg-gray-50"
-          />
-        </div>
+              <Grid>
+                <FormGroup>
+                  <Label>Fecha (MM/AA)</Label>
+                  <Input
+                    type="text"
+                    maxLength="5"
+                    value={formData.fecha}
+                    onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
+                    required
+                  />
+                </FormGroup>
+                <FormGroup>
+                  <Label>CVV</Label>
+                  <Input
+                    type="password"
+                    maxLength="3"
+                    value={formData.cvv}
+                    onChange={(e) => setFormData({ ...formData, cvv: e.target.value })}
+                    required
+                  />
+                </FormGroup>
+              </Grid>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-600">
-              Fecha (MM/AA)
-            </label>
-            <input
-              type="text"
-              maxLength="5"
-              value={formData.fecha}
-              onChange={(e) =>
-                setFormData({ ...formData, fecha: e.target.value })
-              }
-              required
-              className="input input-bordered w-full bg-gray-50"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600">
-              CVV
-            </label>
-            <input
-              type="password"
-              maxLength="3"
-              value={formData.cvv}
-              onChange={(e) =>
-                setFormData({ ...formData, cvv: e.target.value })
-              }
-              required
-              className="input input-bordered w-full bg-gray-50"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-between mt-6">
-          <button
-            type="button"
-            onClick={cerrarModal}
-            className="btn btn-outline"
-          >
-            Cancelar
-          </button>
-          <button type="submit" className="btn btn-primary">
-            Confirmar pago
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
-
-
-    </div>
+              <ModalActions>
+                <Button type="button" onClick={cerrarModal}>Cancelar</Button>
+                <Button primary type="submit">Confirmar pago</Button>
+              </ModalActions>
+            </Form>
+          </ModalCard>
+        </ModalBackdrop>
+      )}
+    </Container>
   );
 }
+
+// --- Styled Components
+const Container = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  padding: 2rem;
+`;
+
+const CenteredText = styled.p`
+  text-align: center;
+  margin-top: 3rem;
+  font-size: 1.2rem;
+  color: #555;
+`;
+
+const Card = styled.div`
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  border: 1px solid #e0e0e0;
+`;
+
+const CardBody = styled.div`
+  padding: 1.5rem;
+`;
+
+const CardTitle = styled.h3`
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #3949ab;
+  margin-bottom: 0.75rem;
+`;
+
+const Info = styled.p`
+  font-size: 0.95rem;
+  margin: 0.25rem 0;
+`;
+
+const StatusBadge = styled.span`
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-weight: bold;
+  color: white;
+  background-color: ${(props) =>
+    props.status === "Pagado" ? "#4caf50" :
+    props.status === "Pendiente" ? "#ff9800" :
+    "#f44336"};
+`;
+
+const Actions = styled.div`
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+`;
+
+const Button = styled.button`
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  background-color: ${(props) => (props.primary ? "#3949ab" : "#e0e0e0")};
+  color: ${(props) => (props.primary ? "#fff" : "#000")};
+  transition: background 0.3s;
+
+  &:hover:not(:disabled) {
+    background-color: ${(props) => (props.primary ? "#5c6bc0" : "#c7c7c7")};
+  }
+
+  &:disabled {
+    background-color: #9fa8da;
+    cursor: not-allowed;
+  }
+`;
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+`;
+
+const ModalBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ModalCard = styled.div`
+  background: #fff;
+  border-radius: 20px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 400px;
+  animation: ${fadeIn} 0.3s ease-out;
+`;
+
+const ModalTitle = styled.h2`
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 1rem;
+  color: #3949ab;
+`;
+
+const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const FormGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const Label = styled.label`
+  font-size: 0.85rem;
+  color: #555;
+  margin-bottom: 0.25rem;
+`;
+
+const Input = styled.input`
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid #c5cae9;
+  font-size: 0.95rem;
+  transition: border 0.2s;
+
+  &:focus {
+    border-color: #3949ab;
+    outline: none;
+  }
+`;
+
+const Grid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+`;
+
+const ModalActions = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+`;

@@ -238,6 +238,12 @@ app.get("/votaciones", verificarToken, (req, res) => {
 });
 
 // ======================================================
+// Módulo de quejas
+// ======================================================
+import quejasRoutes from "./routes/quejas.js";
+app.use("/quejas", quejasRoutes);
+
+// ======================================================
 // 🚀 INICIAR SERVIDOR
 // ======================================================
 app.listen(3001, () => console.log("🚀 Servidor corriendo en http://localhost:3001"));
