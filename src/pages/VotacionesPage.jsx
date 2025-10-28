@@ -7,19 +7,34 @@ export default function VotacionesPage({ user }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch("http://localhost:3001/votaciones")
+    if (!user?.token) return;
+
+    fetch("http://localhost:3001/votaciones", {
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${user.token}`,
+      },
+    })
       .then(res => {
         if (!res.ok) throw new Error(`Error al obtener votaciones: ${res.status}`);
         return res.json();
       })
       .then(data => setVotaciones(data))
       .catch(err => setError(err.message));
-  }, []);
+  }, [user]);
 
   const handleVotar = (id_votacion, voto) => {
+    if (!user?.token) {
+      setError("Usuario no autenticado");
+      return;
+    }
+
     fetch("http://localhost:3001/votar", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${user.token}`,
+      },
       body: JSON.stringify({ id_votacion, id_residencia: user.id_residencia, voto }),
     })
       .then(res => {
@@ -45,7 +60,7 @@ export default function VotacionesPage({ user }) {
             {votaciones.map(v => (
               <ListItem key={v.id_votacion}>
                 <Concepto>{v.concepto}</Concepto>
-                <Fecha>📅 Fecha: {v.fecha}</Fecha>
+                <Fecha>📅 Fecha: {new Date(v.fecha).toLocaleDateString()}</Fecha>
 
                 {!votoEnviado[v.id_votacion] ? (
                   <Botonera>
@@ -70,7 +85,7 @@ export default function VotacionesPage({ user }) {
   );
 }
 
-// 🎨 --- ESTILOS CON STYLED-COMPONENTS ---
+// --- STYLED COMPONENTS ---
 const Container = styled.div`
   display: flex;
   justify-content: center;
@@ -88,7 +103,7 @@ const Card = styled.div`
   width: 100%;
   max-width: 600px;
   transition: transform 0.2s ease;
-  
+
   &:hover {
     transform: translateY(-3px);
   }

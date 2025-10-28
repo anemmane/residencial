@@ -38,7 +38,8 @@ const Sidebar = styled.div`
   padding: 2rem 1rem;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start; /* alineado arriba */
+  gap: 1rem; /* opcional: espacio entre botones */
 `;
 
 const Logo = styled.h1`
