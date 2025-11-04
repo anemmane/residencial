@@ -7,7 +7,9 @@ import PaymentPage from "./pages/PaymentPage.jsx";
 import EmergencyPage from "./pages/EmergencyPage.jsx";
 import VotacionesPage from "./pages/VotacionesPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
-import Menu from "./components/Menu.jsx"; // tu menú estilizado
+import Menu from "./components/Menu.jsx";
+import QuejasPage from "./pages/Quejas.jsx"; // ✅ Nueva página para quejas
+import VotacionesLive from "./pages/VotacionesLive"; // 👈 import nuevo
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -25,16 +27,13 @@ export default function App() {
   };
 
   if (!user) {
-    // Página de login ocupa todo el ancho
     return <LoginPage setUser={setUser} />;
   }
 
   return (
     <AppContainer>
-      {/* Menú lateral */}
       <Menu user={user} />
 
-      {/* Contenido principal */}
       <Content>
         <Header>
           <h1>Residencial App</h1>
@@ -42,13 +41,34 @@ export default function App() {
         </Header>
 
         <Routes>
-          {user.rol === "admin" && <Route path="/dashboard" element={<Dashboard user={user} />} />}
-          {user.rol === "usuario" && <Route path="/payment" element={<PaymentPage user={user} />} />}
-          <Route path="/emergency" element={<EmergencyPage user={user} />} />
+          {/* 👑 ADMIN */}
+          {user.rol === "admin" && (
+            <Route path="/dashboard" element={<Dashboard user={user} />} />
+          )}
+
+          {/* 👤 USUARIO */}
+          {user.rol === "usuario" && (
+            <>
+              <Route path="/dashboard" element={<PaymentPage user={user} />} />
+              <Route path="/quejas" element={<QuejasPage user={user} />} />
+            </>
+          )}
+
+          {/* 🌐 Rutas comunes */}
+          <Route path="/emergencias" element={<EmergencyPage user={user} />} />
           <Route path="/votaciones" element={<VotacionesPage user={user} />} />
+          <Route path="/votacioneslive" element={<VotacionesLive user={user} />} />
+
+          {/* 🚪 Ruta por defecto */}
           <Route
             path="*"
-            element={user.rol === "admin" ? <Dashboard user={user} /> : <PaymentPage user={user} />}
+            element={
+              user.rol === "admin" ? (
+                <Dashboard user={user} />
+              ) : (
+                <PaymentPage user={user} />
+              )
+            }
           />
         </Routes>
       </Content>

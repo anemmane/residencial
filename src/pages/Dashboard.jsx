@@ -61,7 +61,7 @@ const Badge = styled.span`
   font-size: 0.85rem;
   color: white;
   background-color: ${({ status }) =>
-    status === "Pagado" || status === "Resuelta"
+    status === "Pagado"
       ? "#22c55e"
       : status === "Pendiente"
       ? "#eab308"
@@ -102,6 +102,13 @@ const Message = styled.p`
   font-size: 1rem;
 `;
 
+const Input = styled.input`
+  padding: 0.5rem;
+  margin: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+`;
+
 export default function Dashboard({ user }) {
   const [pagos, setPagos] = useState([]);
   const [emergencias, setEmergencias] = useState([]);
@@ -113,6 +120,12 @@ export default function Dashboard({ user }) {
   const [errorPagos, setErrorPagos] = useState(null);
   const [errorEmergencias, setErrorEmergencias] = useState(null);
   const [errorQuejas, setErrorQuejas] = useState(null);
+
+  // Reportes Financieros (solo admin)
+  const [inicio, setInicio] = useState("");
+  const [fin, setFin] = useState("");
+  const [reporte, setReporte] = useState(null);
+  const [loadingReporte, setLoadingReporte] = useState(false);
 
   useEffect(() => {
     const config = { headers: { Authorization: `Bearer ${user.token}` } };
@@ -160,6 +173,22 @@ export default function Dashboard({ user }) {
       setQuejas(res.data);
     } catch (err) {
       alert(err.response?.data?.error || err.message);
+    }
+  };
+
+  const cargarReporte = async () => {
+    if (!inicio || !fin) return alert("Selecciona un rango de fechas válido.");
+    setLoadingReporte(true);
+    try {
+      const res = await axios.get(
+        `http://localhost:3001/reportes-financieros?inicio=${inicio}&fin=${fin}`,
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+      setReporte(res.data);
+    } catch (err) {
+      alert("Error al cargar el reporte financiero: " + err.message);
+    } finally {
+      setLoadingReporte(false);
     }
   };
 
@@ -242,7 +271,6 @@ export default function Dashboard({ user }) {
       {/* Quejas */}
       <Section>
         <SectionTitle>Quejas</SectionTitle>
-
         <Textarea
           placeholder="Describe tu queja o sugerencia..."
           value={descripcionQueja}
@@ -281,6 +309,54 @@ export default function Dashboard({ user }) {
           </Table>
         )}
       </Section>
+
+      {/* Reportes Financieros (solo admin) */}
+      {user.rol === "admin" && (
+        <Section>
+          <SectionTitle>📊 Reportes Financieros</SectionTitle>
+          <div>
+            <label>
+              Desde: <Input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} />
+            </label>
+            <label>
+              Hasta: <Input type="date" value={fin} onChange={(e) => setFin(e.target.value)} />
+            </label>
+            <Button onClick={cargarReporte}>Ver Reporte</Button>
+          </div>
+
+          {loadingReporte ? (
+            <Message>Cargando reporte...</Message>
+          ) : reporte ? (
+            <>
+              <h3>Totales</h3>
+              <p>Pagado: ${reporte.totales?.totalPagado || 0}</p>
+              <p>Pendiente: ${reporte.totales?.totalPendiente || 0}</p>
+              <p>Vencido: ${reporte.totales?.totalVencido || 0}</p>
+
+              <h3>Detalles</h3>
+              <ul>
+                {reporte.registros?.map((r) => (
+                  <li key={r.id_pago}>
+                    #{r.id_pago} - {r.concepto} - ${r.monto} - {r.estatus}
+                  </li>
+                ))}
+              </ul>
+
+              <div style={{ marginTop: "1rem" }}>
+                <a href="http://localhost:3001/reportes-financieros/pdf" target="_blank" rel="noreferrer">
+                  📄 Descargar PDF
+                </a>{" "}
+                |{" "}
+                <a href="http://localhost:3001/reportes-financieros/csv" target="_blank" rel="noreferrer">
+                  📥 Descargar CSV
+                </a>
+              </div>
+            </>
+          ) : (
+            <Message>Selecciona un rango de fechas para generar el reporte.</Message>
+          )}
+        </Section>
+      )}
     </DashboardContainer>
   );
 }

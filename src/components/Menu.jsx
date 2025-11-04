@@ -19,6 +19,9 @@ export default function Menu({ user }) {
         <NavItem>
           <StyledLink to="/votaciones">Votaciones</StyledLink>
         </NavItem>
+        <NavItem>
+          <StyledLink to="/votacioneslive">Votaciones Live</StyledLink>
+        </NavItem>
         {user.role === "admin" && (
           <NavItem>
             <StyledLink to="/admin">Panel Admin</StyledLink>
