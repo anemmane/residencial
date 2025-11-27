@@ -149,6 +149,130 @@ app.get("/pagos", verificarToken, (req, res) => {
 });
 
 // ======================================================
+// 🚨 🚨 🚨 NUEVO: REGISTRO DE EMERGENCIAS
+// ======================================================
+app.post("/emergencias", (req, res) => {
+  const { id_residencia, descripcion } = req.body;
+
+  if (!id_residencia || !descripcion) {
+    return res.status(400).json({ error: "Faltan datos requeridos" });
+  }
+
+  const fecha_solicitud = new Date().toISOString().split("T")[0];
+
+  const query = `
+    INSERT INTO emergencias (id_residencia, descripcion, fecha_solicitud)
+    VALUES (?, ?, ?)
+  `;
+
+  db.query(query, [id_residencia, descripcion, fecha_solicitud], (err, result) => {
+    if (err) {
+      console.error("❌ Error al registrar emergencia:", err);
+      return res.status(500).json({ error: "Error en el servidor" });
+    }
+
+    res.json({
+      message: "Emergencia registrada correctamente",
+      id_emergencia: result.insertId,
+    });
+  });
+});
+
+// ======================================================
+// 🚨 GET: Listar emergencias (solo admin)
+// ======================================================
+
+app.get("/emergencias", verificarToken, (req, res) => {
+  const { rol, id_residencia } = req.user;
+
+  // Selecciona todas las columnas, incluyendo 'status'
+  let sql = "SELECT id_emergencia, id_residencia, descripcion, fecha_solicitud, status FROM emergencias";
+  const params = [];
+
+  // Solo usuarios normales ven solo sus emergencias
+  if (rol.toLowerCase() !== "admin") {
+    sql += " WHERE id_residencia = ?";
+    params.push(id_residencia);
+  }
+
+  sql += " ORDER BY fecha_solicitud DESC";
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error("❌ Error al obtener emergencias:", err);
+      return res.status(500).json({ error: "Error en el servidor" });
+    }
+
+    res.json(results);
+  });
+});
+
+// ======================================================
+// 🔹 GET: Listar votaciones
+// ======================================================
+app.get("/votaciones", verificarToken, (req, res) => {
+  const { rol, id_habitante } = req.user;
+
+  // Traer votaciones con totales de votos
+  const sql = `
+    SELECT v.id_votacion,
+           v.concepto AS titulo,
+           v.estado,
+           v.fecha_inicio,
+           v.fecha_fin,
+           COALESCE(SUM(vt.voto = 'A favor'),0) AS votos_si,
+           COALESCE(SUM(vt.voto = 'En contra'),0) AS votos_no,
+           COUNT(vt.id_voto) AS total_votos
+    FROM votaciones v
+    LEFT JOIN votos vt ON vt.id_votacion = v.id_votacion
+    GROUP BY v.id_votacion
+    ORDER BY v.fecha_inicio DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ Error al obtener votaciones:", err);
+      return res.status(500).json({ error: "Error en el servidor" });
+    }
+
+    res.json(results);
+  });
+});
+
+// ======================================================
+// 🔹 POST: Registrar voto
+// ======================================================
+app.post("/votar", verificarToken, (req, res) => {
+  const { id_votacion, voto } = req.body;
+  const { id_habitante } = req.user;
+
+  if (!id_votacion || !voto) {
+    return res.status(400).json({ error: "Faltan datos para registrar el voto" });
+  }
+
+  // Validar que el voto sea correcto
+  const votosValidos = ["A favor", "En contra", "Abstención"];
+  if (!votosValidos.includes(voto)) {
+    return res.status(400).json({ error: "Voto inválido" });
+  }
+
+  // Verificar si ya votó
+  const checkSql = "SELECT * FROM votos WHERE id_votacion=? AND id_habitante=?";
+  db.query(checkSql, [id_votacion, id_habitante], (err, rows) => {
+    if (err) return res.status(500).json({ error: "Error en el servidor" });
+    if (rows.length > 0) return res.status(400).json({ error: "Ya votaste esta votación" });
+
+    // Insertar voto
+    const insertSql = "INSERT INTO votos (id_votacion, id_habitante, voto) VALUES (?, ?, ?)";
+    db.query(insertSql, [id_votacion, id_habitante, voto], (err2) => {
+      if (err2) return res.status(500).json({ error: "Error al registrar voto" });
+      res.json({ message: "Voto registrado correctamente" });
+    });
+  });
+});
+
+
+// ======================================================
 // 📊 Rutas externas: Quejas y Reportes
 // ======================================================
 app.use("/quejas", quejasRoutes);

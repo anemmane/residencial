@@ -14,6 +14,8 @@ export default function PaymentPage({ user }) {
     cvv: "",
   });
 
+  const esAdmin = user.rol === "admin"; // <-- AJUSTA ESTE CAMPO
+
   useEffect(() => {
     axios
       .get("http://localhost:3001/pagos", {
@@ -41,7 +43,6 @@ export default function PaymentPage({ user }) {
 
   const handlePagoSimulado = async (e) => {
     e.preventDefault();
-
     try {
       const body = {
         monto: parseFloat(selectedPago.monto),
@@ -90,6 +91,52 @@ export default function PaymentPage({ user }) {
   };
 
   if (loading) return <CenteredText>Cargando pagos...</CenteredText>;
+
+  // --------------------------------------------------------
+  // 🔥 🔥 🔥 VISTA ADMINISTRADOR (TABLA)
+  // --------------------------------------------------------
+  if (esAdmin) {
+    return (
+      <DashboardContainer>
+        <Title>Panel de Pagos (Admin)</Title>
+
+        <Section>
+          <SectionTitle>Listado de Pagos</SectionTitle>
+
+          <Table>
+            <thead>
+              <tr>
+                <Th>Concepto</Th>
+                <Th>Monto</Th>
+                <Th>Fecha</Th>
+                <Th>Línea de captura</Th>
+                <Th>Estatus</Th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {pagos.map((pago) => (
+                <tr key={pago.linea_captura}>
+                  <Td>{pago.concepto}</Td>
+                  <Td>${pago.monto}</Td>
+                  <Td>{new Date(pago.fecha_generacion).toLocaleDateString()}</Td>
+                  <Td>{pago.linea_captura}</Td>
+                  <Td>
+                    <Badge status={pago.estatus}>{pago.estatus}</Badge>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Section>
+      </DashboardContainer>
+    );
+  }
+
+  // --------------------------------------------------------
+  // 🔥 🔥 🔥 VISTA USUARIO NORMAL (TU DISEÑO ORIGINAL)
+  // --------------------------------------------------------
+
   if (pagos.length === 0)
     return <CenteredText>No hay pagos pendientes</CenteredText>;
 
@@ -106,11 +153,14 @@ export default function PaymentPage({ user }) {
               <strong>Estatus:</strong>{" "}
               <StatusBadge status={pago.estatus}>{pago.estatus}</StatusBadge>
             </Info>
+
             <Actions>
               {pago.estatus === "Pendiente" && (
                 <Button primary onClick={() => abrirModal(pago)}>Pagar</Button>
               )}
-              <Button onClick={() => handleVerPDF(pago.linea_captura)}>Descargar PDF</Button>
+              <Button onClick={() => handleVerPDF(pago.linea_captura)}>
+                Descargar PDF
+              </Button>
             </Actions>
           </CardBody>
         </Card>
@@ -177,7 +227,64 @@ export default function PaymentPage({ user }) {
   );
 }
 
-// --- Styled Components
+/* ------------------  ESTILOS ------------------ */
+
+const DashboardContainer = styled.div`
+  min-height: 100vh;
+  background: linear-gradient(135deg, #e0eafc, #cfdef3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+`;
+
+const Title = styled.h1`
+  font-size: 2.2rem;
+  color: #1f2a44;
+`;
+
+const Section = styled.section`
+  background: white;
+  padding: 2rem;
+  border-radius: 15px;
+  width: 100%;
+  max-width: 1000px;
+`;
+
+const SectionTitle = styled.h2`
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+`;
+
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+`;
+
+const Th = styled.th`
+  background: #2e3a59;
+  color: white;
+  padding: 0.8rem;
+`;
+
+const Td = styled.td`
+  padding: 0.8rem;
+  border-bottom: 1px solid #ddd;
+`;
+
+const Badge = styled.span`
+  background: ${(props) =>
+    props.status === "Pagado" ? "#22c55e" :
+    props.status === "Pendiente" ? "#f59e0b" :
+    "#ef4444"};
+  color: white;
+  padding: 0.3rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+`;
+
+/* --- estilos originales --- */
+
 const Container = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -196,7 +303,6 @@ const Card = styled.div`
   background: #fff;
   border-radius: 20px;
   box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-  border: 1px solid #e0e0e0;
 `;
 
 const CardBody = styled.div`
@@ -205,13 +311,10 @@ const CardBody = styled.div`
 
 const CardTitle = styled.h3`
   font-size: 1.25rem;
-  font-weight: bold;
   color: #3949ab;
-  margin-bottom: 0.75rem;
 `;
 
 const Info = styled.p`
-  font-size: 0.95rem;
   margin: 0.25rem 0;
 `;
 
@@ -233,23 +336,16 @@ const Actions = styled.div`
 `;
 
 const Button = styled.button`
-  flex: 1;
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1rem;
   border-radius: 12px;
   border: none;
   font-weight: bold;
   cursor: pointer;
   background-color: ${(props) => (props.primary ? "#3949ab" : "#e0e0e0")};
   color: ${(props) => (props.primary ? "#fff" : "#000")};
-  transition: background 0.3s;
 
-  &:hover:not(:disabled) {
-    background-color: ${(props) => (props.primary ? "#5c6bc0" : "#c7c7c7")};
-  }
-
-  &:disabled {
-    background-color: #9fa8da;
-    cursor: not-allowed;
+  &:hover {
+    opacity: 0.9;
   }
 `;
 
@@ -271,16 +367,12 @@ const ModalCard = styled.div`
   background: #fff;
   border-radius: 20px;
   padding: 2rem;
-  width: 100%;
   max-width: 400px;
   animation: ${fadeIn} 0.3s ease-out;
 `;
 
 const ModalTitle = styled.h2`
-  font-size: 1.5rem;
-  font-weight: bold;
   text-align: center;
-  margin-bottom: 1rem;
   color: #3949ab;
 `;
 
@@ -298,15 +390,12 @@ const FormGroup = styled.div`
 const Label = styled.label`
   font-size: 0.85rem;
   color: #555;
-  margin-bottom: 0.25rem;
 `;
 
 const Input = styled.input`
   padding: 0.5rem 0.75rem;
   border-radius: 10px;
   border: 1px solid #c5cae9;
-  font-size: 0.95rem;
-  transition: border 0.2s;
 
   &:focus {
     border-color: #3949ab;
@@ -323,5 +412,5 @@ const Grid = styled.div`
 const ModalActions = styled.div`
   display: flex;
   gap: 0.5rem;
-  margin-top: 1rem;
 `;
+

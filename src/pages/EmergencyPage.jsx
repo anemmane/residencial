@@ -1,24 +1,112 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 
-export default function EmergencyPage() {
+export default function EmergencyPage({ user }) {
   const [name, setName] = useState("");
   const [apartment, setApartment] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("");
+  const [emergencias, setEmergencias] = useState([]);
 
-  const handleReport = () => {
+  useEffect(() => {
+    if (!user?.token) return;
+
+    // Traer emergencias si es admin o para su propio apartamento
+    fetch("http://localhost:3001/emergencias", {
+      headers: { "Authorization": `Bearer ${user.token}` },
+    })
+      .then(res => {
+        if (!res.ok) throw new Error("Error al traer emergencias: " + res.status);
+        return res.json();
+      })
+      .then(data => {
+        console.log("Emergencias recibidas:", data); // <-- para debug
+        setEmergencias(data);
+      })
+      .catch(err => {
+        console.error(err);
+        setStatus("❌ Error al cargar emergencias");
+      });
+  }, [user]);
+
+  const handleReport = async () => {
     if (!name || !apartment || !description) {
       setStatus("❌ Completa todos los campos");
       return;
     }
 
-    setStatus("✅ Reporte enviado. Ayuda en camino!");
-    setName("");
-    setApartment("");
-    setDescription("");
+    if (isNaN(Number(apartment))) {
+      setStatus("❌ El apartamento debe ser un número");
+      return;
+    }
+
+    try {
+      const res = await fetch("http://localhost:3001/emergencias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_residencia: Number(apartment),
+          descripcion: `Reporte de ${name}: ${description}`,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setStatus("✅ Reporte enviado correctamente");
+        setName("");
+        setApartment("");
+        setDescription("");
+        // Actualizar la lista de emergencias
+        setEmergencias(prev => [
+          { id_emergencia: data.id_emergencia, id_residencia: Number(apartment), descripcion: `Reporte de ${name}: ${description}`, fecha_solicitud: new Date().toISOString().split("T")[0], status: "En proceso" },
+          ...prev
+        ]);
+      } else {
+        setStatus("❌ Error: " + data.error);
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus("❌ Error al conectar con el servidor");
+    }
   };
 
+  // Tabla de admin
+if (user?.rol?.toLowerCase() === "admin") {
+  return (
+    <Container>
+      <Card style={{ maxWidth: "90%" }}>
+        <Title>🚨 Emergencias Registradas</Title>
+        <Table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Apartamento</th>
+              <th>Descripción</th>
+              <th>Fecha</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {emergencias.map((e, idx) => (
+              <tr key={e.id_emergencia} className={idx % 2 === 0 ? "even" : "odd"}>
+                <td>{e.id_emergencia}</td>
+                <td>{e.id_residencia}</td>
+                <td>{e.descripcion}</td>
+                <td>{e.fecha_solicitud}</td>
+                <td>
+                  <StatusBadge status={e.status}>{e.status}</StatusBadge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </Card>
+    </Container>
+  );
+}
+
+  // Formulario para usuarios normales
   return (
     <Container>
       <Card>
@@ -33,7 +121,7 @@ export default function EmergencyPage() {
         />
 
         <Input
-          type="text"
+          type="number"
           placeholder="Apartamento"
           value={apartment}
           onChange={(e) => setApartment(e.target.value)}
@@ -53,7 +141,8 @@ export default function EmergencyPage() {
   );
 }
 
-// 🎨 --- ESTILOS CON STYLED-COMPONENTS ---
+// 🎨 Styled-components se mantienen iguales...
+
 const Container = styled.div`
   display: flex;
   justify-content: center;
@@ -147,4 +236,48 @@ const StatusMessage = styled.p`
   font-weight: 500;
   color: ${(props) =>
     props.children.startsWith("✅") ? "#2e7d32" : "#c62828"};
+`;
+
+// Styled-components para tabla
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  font-size: 0.95rem;
+
+  th, td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e0e0e0;
+    text-align: left;
+  }
+
+  th {
+    background: #e53935;
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  tr.even {
+    background: #fff5f5;
+  }
+
+  tr.odd {
+    background: #ffe6e6;
+  }
+`;
+
+const StatusBadge = styled.span`
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white;
+  background-color: ${(props) =>
+    props.status.toLowerCase() === "en proceso"
+      ? "#f9a825"
+      : props.status.toLowerCase() === "resuelto"
+      ? "#2e7d32"
+      : "#c62828"};
 `;

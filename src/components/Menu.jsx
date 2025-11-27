@@ -11,6 +11,9 @@ export default function Menu({ user }) {
           <StyledLink to="/dashboard">Dashboard</StyledLink>
         </NavItem>
         <NavItem>
+          <StyledLink to="/pagos">Pagos</StyledLink>
+        </NavItem>
+        <NavItem>
           <StyledLink to="/emergencias">Emergencias</StyledLink>
         </NavItem>
         <NavItem>

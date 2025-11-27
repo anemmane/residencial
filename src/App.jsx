@@ -8,8 +8,8 @@ import EmergencyPage from "./pages/EmergencyPage.jsx";
 import VotacionesPage from "./pages/VotacionesPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import Menu from "./components/Menu.jsx";
-import QuejasPage from "./pages/Quejas.jsx"; // ✅ Nueva página para quejas
-import VotacionesLive from "./pages/VotacionesLive"; // 👈 import nuevo
+import QuejasPage from "./pages/Quejas.jsx";
+import VotacionesLive from "./pages/VotacionesLive";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -41,35 +41,18 @@ export default function App() {
         </Header>
 
         <Routes>
-          {/* 👑 ADMIN */}
-          {user.rol === "admin" && (
-            <Route path="/dashboard" element={<Dashboard user={user} />} />
-          )}
+          {/* Dashboard para TODOS */}
+          <Route path="/dashboard" element={<Dashboard user={user} />} />
 
-          {/* 👤 USUARIO */}
-          {user.rol === "usuario" && (
-            <>
-              <Route path="/dashboard" element={<PaymentPage user={user} />} />
-              <Route path="/quejas" element={<QuejasPage user={user} />} />
-            </>
-          )}
-
-          {/* 🌐 Rutas comunes */}
+          {/* Rutas comunes */}
+          <Route path="/pagos" element={<PaymentPage user={user} />} />
+          <Route path="/quejas" element={<QuejasPage user={user} />} />
           <Route path="/emergencias" element={<EmergencyPage user={user} />} />
           <Route path="/votaciones" element={<VotacionesPage user={user} />} />
           <Route path="/votacioneslive" element={<VotacionesLive user={user} />} />
 
-          {/* 🚪 Ruta por defecto */}
-          <Route
-            path="*"
-            element={
-              user.rol === "admin" ? (
-                <Dashboard user={user} />
-              ) : (
-                <PaymentPage user={user} />
-              )
-            }
-          />
+          {/* Ruta por defecto → SIEMPRE Dashboard */}
+          <Route path="*" element={<Dashboard user={user} />} />
         </Routes>
       </Content>
     </AppContainer>
