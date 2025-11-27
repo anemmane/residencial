@@ -271,6 +271,34 @@ app.post("/votar", verificarToken, (req, res) => {
   });
 });
 
+// ======================================================
+// POST /quejas — Registrar nueva queja
+// ======================================================
+app.post("/quejas", verificarToken, (req, res) => {
+  const { descripcion } = req.body;
+  const { id_habitante, id_residencia } = req.user;
+
+  // Validación
+  if (!descripcion || !id_residencia || !id_habitante) {
+    return res.status(400).json({ error: "Faltan datos requeridos" });
+  }
+
+  const sql = `
+    INSERT INTO quejas (id_residencia, id_habitante, descripcion, estatus, fecha_creacion)
+    VALUES (?, ?, ?, 'Pendiente', NOW())
+  `;
+  db.query(sql, [id_residencia, id_habitante, descripcion], (err, result) => {
+    if (err) {
+      console.error("❌ Error al guardar queja:", err);
+      return res.status(500).json({ error: "Error en el servidor" });
+    }
+    res.json({
+      message: "Queja registrada correctamente",
+      id_queja: result.insertId,
+    });
+  });
+});
+
 
 // ======================================================
 // 📊 Rutas externas: Quejas y Reportes
