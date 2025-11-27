@@ -31,11 +31,10 @@ const __dirname = path.dirname(__filename);
 // 🗄️ Conexión a MySQL
 // ======================================================
 const db = mysql.createConnection({
-  host: "sql100.infinityfree.com",
-  user: "if0_40528353",
-  password: "At0YATxPrUG0YYo",
-  database: "if0_40528353_residencial_db",
-  port: 3306,
+  host: "localhost",
+  user: "root",
+  password: "anemSQLudg2025",
+  database: "residencial_db",
 });
 
 db.connect((err) => {
