@@ -14,19 +14,18 @@ export default function PaymentPage({ user }) {
     cvv: "",
   });
 
-  const esAdmin = user.rol === "admin"; // <-- AJUSTA ESTE CAMPO
+  const esAdmin = user.rol === "admin";
 
   useEffect(() => {
     axios
-      .get("/pagos", {
+      .get("/api/pagos.php", {
         headers: { Authorization: `Bearer ${user.token}` },
       })
       .then((res) => {
         setPagos(res.data);
         setLoading(false);
       })
-      .catch((err) => {
-        console.error("Error al obtener pagos:", err);
+      .catch(() => {
         setLoading(false);
       });
   }, [user.token]);
@@ -44,38 +43,33 @@ export default function PaymentPage({ user }) {
   const handlePagoSimulado = async (e) => {
     e.preventDefault();
     try {
-      const body = {
-        monto: parseFloat(selectedPago.monto),
-        concepto: selectedPago.concepto,
-        id_residencia: user.id_residencia,
-      };
-
-      await axios.post("/crear-preferencia", body, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
-
-      alert("✅ Pago simulado realizado con éxito");
-
-      cerrarModal();
-
-      setPagos((prev) =>
-        prev.map((p) =>
-          p.linea_captura === selectedPago.linea_captura
-            ? { ...p, estatus: "Pagado" }
-            : p
-        )
+      await axios.post(
+        "/api/crear-preferencia.php",
+        {
+          monto: parseFloat(selectedPago.monto),
+          concepto: selectedPago.concepto,
+          id_residencia: user.id_residencia,
+        },
+        {
+          headers: { Authorization: `Bearer ${user.token}` },
+        }
       );
-    } catch (error) {
-      console.error("Error al simular pago:", error);
-      alert("❌ No se pudo completar el pago simulado.");
+
+      alert("✅ Pago simulado realizado");
+      cerrarModal();
+    } catch {
+      alert("❌ No se pudo completar el pago");
     }
   };
 
   const handleVerPDF = async (linea_captura) => {
     try {
       const res = await axios.get(
-        `/verificar-pago/${linea_captura}`,
-        { headers: { Authorization: `Bearer ${user.token}` }, responseType: "blob" }
+        `/api/verificar-pago.php?linea_captura=${linea_captura}`,
+        {
+          headers: { Authorization: `Bearer ${user.token}` },
+          responseType: "blob",
+        }
       );
 
       const url = window.URL.createObjectURL(res.data);
@@ -83,18 +77,14 @@ export default function PaymentPage({ user }) {
       link.href = url;
       link.download = `recibo_${linea_captura}.pdf`;
       link.click();
-      link.remove();
-    } catch (error) {
-      console.error("Error al descargar PDF:", error);
-      alert("Ocurrió un error al descargar el PDF del pago.");
+    } catch {
+      alert("Error al descargar PDF");
     }
   };
 
   if (loading) return <CenteredText>Cargando pagos...</CenteredText>;
 
-  // --------------------------------------------------------
-  // 🔥 🔥 🔥 VISTA ADMINISTRADOR (TABLA)
-  // --------------------------------------------------------
+  // -------- ADMIN --------
   if (esAdmin) {
     return (
       <DashboardContainer>
@@ -109,7 +99,7 @@ export default function PaymentPage({ user }) {
                 <Th>Concepto</Th>
                 <Th>Monto</Th>
                 <Th>Fecha</Th>
-                <Th>Línea de captura</Th>
+                <Th>Línea</Th>
                 <Th>Estatus</Th>
               </tr>
             </thead>
@@ -121,9 +111,7 @@ export default function PaymentPage({ user }) {
                   <Td>${pago.monto}</Td>
                   <Td>{new Date(pago.fecha_generacion).toLocaleDateString()}</Td>
                   <Td>{pago.linea_captura}</Td>
-                  <Td>
-                    <Badge status={pago.estatus}>{pago.estatus}</Badge>
-                  </Td>
+                  <Td>{pago.estatus}</Td>
                 </tr>
               ))}
             </tbody>
@@ -133,10 +121,7 @@ export default function PaymentPage({ user }) {
     );
   }
 
-  // --------------------------------------------------------
-  // 🔥 🔥 🔥 VISTA USUARIO NORMAL (TU DISEÑO ORIGINAL)
-  // --------------------------------------------------------
-
+  // -------- USUARIO --------
   if (pagos.length === 0)
     return <CenteredText>No hay pagos pendientes</CenteredText>;
 
@@ -148,18 +133,17 @@ export default function PaymentPage({ user }) {
             <CardTitle>{pago.concepto}</CardTitle>
             <Info><strong>Monto:</strong> ${pago.monto}</Info>
             <Info><strong>Fecha:</strong> {new Date(pago.fecha_generacion).toLocaleDateString()}</Info>
-            <Info><strong>Línea de captura:</strong> {pago.linea_captura}</Info>
-            <Info>
-              <strong>Estatus:</strong>{" "}
-              <StatusBadge status={pago.estatus}>{pago.estatus}</StatusBadge>
-            </Info>
+            <Info><strong>Línea:</strong> {pago.linea_captura}</Info>
 
             <Actions>
               {pago.estatus === "Pendiente" && (
-                <Button primary onClick={() => abrirModal(pago)}>Pagar</Button>
+                <Button primary onClick={() => abrirModal(pago)}>
+                  Pagar
+                </Button>
               )}
+
               <Button onClick={() => handleVerPDF(pago.linea_captura)}>
-                Descargar PDF
+                PDF
               </Button>
             </Actions>
           </CardBody>
@@ -185,7 +169,6 @@ export default function PaymentPage({ user }) {
                 <Label>Número de tarjeta</Label>
                 <Input
                   type="text"
-                  maxLength="16"
                   value={formData.numeroTarjeta}
                   onChange={(e) => setFormData({ ...formData, numeroTarjeta: e.target.value })}
                   required
@@ -194,20 +177,19 @@ export default function PaymentPage({ user }) {
 
               <Grid>
                 <FormGroup>
-                  <Label>Fecha (MM/AA)</Label>
+                  <Label>Fecha</Label>
                   <Input
                     type="text"
-                    maxLength="5"
                     value={formData.fecha}
                     onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
                     required
                   />
                 </FormGroup>
+
                 <FormGroup>
                   <Label>CVV</Label>
                   <Input
                     type="password"
-                    maxLength="3"
                     value={formData.cvv}
                     onChange={(e) => setFormData({ ...formData, cvv: e.target.value })}
                     required
@@ -227,32 +209,24 @@ export default function PaymentPage({ user }) {
   );
 }
 
-/* ------------------  ESTILOS ------------------ */
+/* ------------------  ESTILOS  ------------------ */
 
 const DashboardContainer = styled.div`
   min-height: 100vh;
-  background: linear-gradient(135deg, #e0eafc, #cfdef3);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   padding: 2rem;
 `;
 
 const Title = styled.h1`
-  font-size: 2.2rem;
-  color: #1f2a44;
+  font-size: 2rem;
 `;
 
 const Section = styled.section`
   background: white;
   padding: 2rem;
   border-radius: 15px;
-  width: 100%;
-  max-width: 1000px;
 `;
 
 const SectionTitle = styled.h2`
-  font-size: 1.4rem;
   margin-bottom: 1rem;
 `;
 
@@ -262,9 +236,9 @@ const Table = styled.table`
 `;
 
 const Th = styled.th`
+  padding: 0.8rem;
   background: #2e3a59;
   color: white;
-  padding: 0.8rem;
 `;
 
 const Td = styled.td`
@@ -272,22 +246,8 @@ const Td = styled.td`
   border-bottom: 1px solid #ddd;
 `;
 
-const Badge = styled.span`
-  background: ${(props) =>
-    props.status === "Pagado" ? "#22c55e" :
-    props.status === "Pendiente" ? "#f59e0b" :
-    "#ef4444"};
-  color: white;
-  padding: 0.3rem 0.8rem;
-  border-radius: 8px;
-  font-size: 0.8rem;
-`;
-
-/* --- estilos originales --- */
-
 const Container = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1.5rem;
   padding: 2rem;
 `;
@@ -295,8 +255,6 @@ const Container = styled.div`
 const CenteredText = styled.p`
   text-align: center;
   margin-top: 3rem;
-  font-size: 1.2rem;
-  color: #555;
 `;
 
 const Card = styled.div`
@@ -311,23 +269,9 @@ const CardBody = styled.div`
 
 const CardTitle = styled.h3`
   font-size: 1.25rem;
-  color: #3949ab;
 `;
 
-const Info = styled.p`
-  margin: 0.25rem 0;
-`;
-
-const StatusBadge = styled.span`
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  font-weight: bold;
-  color: white;
-  background-color: ${(props) =>
-    props.status === "Pagado" ? "#4caf50" :
-    props.status === "Pendiente" ? "#ff9800" :
-    "#f44336"};
-`;
+const Info = styled.p``;
 
 const Actions = styled.div`
   margin-top: 1rem;
@@ -339,14 +283,8 @@ const Button = styled.button`
   padding: 0.6rem 1rem;
   border-radius: 12px;
   border: none;
-  font-weight: bold;
-  cursor: pointer;
   background-color: ${(props) => (props.primary ? "#3949ab" : "#e0e0e0")};
   color: ${(props) => (props.primary ? "#fff" : "#000")};
-
-  &:hover {
-    opacity: 0.9;
-  }
 `;
 
 const fadeIn = keyframes`
@@ -358,9 +296,6 @@ const ModalBackdrop = styled.div`
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 `;
 
 const ModalCard = styled.div`
@@ -368,39 +303,29 @@ const ModalCard = styled.div`
   border-radius: 20px;
   padding: 2rem;
   max-width: 400px;
+  margin: 10% auto;
   animation: ${fadeIn} 0.3s ease-out;
 `;
 
 const ModalTitle = styled.h2`
   text-align: center;
-  color: #3949ab;
 `;
 
-const Form = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
+const Form = styled.form``;
 
 const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
+  margin-bottom: 1rem;
 `;
 
 const Label = styled.label`
   font-size: 0.85rem;
-  color: #555;
 `;
 
 const Input = styled.input`
-  padding: 0.5rem 0.75rem;
+  width: 100%;
+  padding: 0.6rem;
   border-radius: 10px;
   border: 1px solid #c5cae9;
-
-  &:focus {
-    border-color: #3949ab;
-    outline: none;
-  }
 `;
 
 const Grid = styled.div`
@@ -413,4 +338,3 @@ const ModalActions = styled.div`
   display: flex;
   gap: 0.5rem;
 `;
-

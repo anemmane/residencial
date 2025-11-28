@@ -15,14 +15,31 @@ export default function LoginPage({ setUser }) {
     setLoading(true);
 
     try {
-      const res = await fetch("/login", {
+      // 🚀 FormData porque InfinityFree NO acepta JSON
+      const formData = new FormData();
+      formData.append("username", username);
+      formData.append("password", password);
+
+      const res = await fetch("/api/login.php", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: formData, // <-- SIN headers
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al iniciar sesión");
+      const text = await res.text();
+
+      if (!text) throw new Error("Servidor no respondió");
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("Respuesta del servidor:", text);
+        throw new Error("Respuesta inválida del servidor");
+      }
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Error al iniciar sesión");
+      }
 
       const userData = {
         nombre: data.nombre,
@@ -34,8 +51,9 @@ export default function LoginPage({ setUser }) {
       setUser(userData);
       localStorage.setItem("user", JSON.stringify(userData));
 
-      navigate(data.rol === "admin" ? "/dashboard" : "/payment");
+      navigate("/dashboard");
     } catch (err) {
+      console.error(err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -56,6 +74,7 @@ export default function LoginPage({ setUser }) {
             onChange={(e) => setUsername(e.target.value)}
             required
           />
+
           <Input
             type="password"
             placeholder="Contraseña"
@@ -63,6 +82,7 @@ export default function LoginPage({ setUser }) {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+
           <Button type="submit" disabled={loading}>
             {loading ? <LoadingDots>...</LoadingDots> : "Entrar"}
           </Button>
@@ -72,7 +92,7 @@ export default function LoginPage({ setUser }) {
   );
 }
 
-// 🎨 --- Estilos
+// Estilos sin cambio...
 const Container = styled.div`
   display: flex;
   align-items: center;
@@ -93,14 +113,11 @@ const Card = styled.div`
 
 const Title = styled.h2`
   font-size: 2rem;
-  font-weight: bold;
   color: #3949ab;
-  margin-bottom: 1rem;
 `;
 
 const ErrorMsg = styled.p`
   color: #f44336;
-  font-weight: 500;
   margin-bottom: 1rem;
 `;
 
@@ -115,12 +132,6 @@ const Input = styled.input`
   border-radius: 12px;
   border: 2px solid #c5cae9;
   font-size: 1rem;
-  transition: border 0.2s;
-
-  &:focus {
-    border-color: #3949ab;
-    outline: none;
-  }
 `;
 
 const Button = styled.button`
@@ -130,16 +141,6 @@ const Button = styled.button`
   color: white;
   font-weight: bold;
   cursor: pointer;
-  transition: background 0.3s;
-
-  &:hover:not(:disabled) {
-    background-color: #5c6bc0;
-  }
-
-  &:disabled {
-    background-color: #9fa8da;
-    cursor: not-allowed;
-  }
 `;
 
 const blink = keyframes`

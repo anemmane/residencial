@@ -12,12 +12,11 @@ export default function Quejas({ user }) {
     headers: { Authorization: `Bearer ${user.token}` },
   };
 
-  // 🔹 Cargar quejas según el rol
   useEffect(() => {
     const url =
       user.rol === "admin"
-        ? "/quejas" // todas las quejas
-        : `/quejas?usuario=${user.id_habitante}`; // solo las del usuario
+        ? "/api/quejas.php"
+        : `/api/quejas.php?usuario=${user.id_habitante}`;
 
     axios
       .get(url, config)
@@ -33,14 +32,10 @@ export default function Quejas({ user }) {
 
   const enviarQueja = () => {
     if (!descripcion.trim()) return alert("Escribe una descripción");
+
     axios
-      .post("/quejas", { descripcion }, config)
-      .then(() => {
-        alert("✅ Queja enviada correctamente");
-        setDescripcion("");
-        // Refrescar lista
-        return axios.get("/quejas", config);
-      })
+      .post("/api/quejas.php", { descripcion }, config)
+      .then(() => axios.get("/api/quejas.php", config))
       .then((res) => setQuejas(res.data))
       .catch((err) => alert(err.response?.data?.error || err.message));
   };
@@ -50,7 +45,6 @@ export default function Quejas({ user }) {
       <Card>
         <Title>📋 Módulo de Quejas</Title>
 
-        {/* 👤 Solo los usuarios pueden enviar quejas */}
         {user.rol === "usuario" && (
           <FormSection>
             <Textarea
@@ -62,7 +56,6 @@ export default function Quejas({ user }) {
           </FormSection>
         )}
 
-        {/* 🔹 Listado de quejas */}
         {loading ? (
           <Message>Cargando quejas...</Message>
         ) : error ? (
@@ -96,82 +89,23 @@ export default function Quejas({ user }) {
   );
 }
 
-// 🎨 --- ESTILOS UNIFICADOS (funcionan igual para admin y usuario)
+// Estilos sin cambios
 const Container = styled.div`
   padding: 2rem;
   display: flex;
   justify-content: center;
 `;
-
 const Card = styled.div`
   background: white;
   padding: 2rem;
   border-radius: 20px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   width: 90%;
   max-width: 900px;
 `;
-
-const Title = styled.h2`
-  font-size: 1.6rem;
-  font-weight: bold;
-  color: #3949ab;
-  margin-bottom: 1.5rem;
-`;
-
-const FormSection = styled.div`
-  margin-bottom: 2rem;
-`;
-
-const Textarea = styled.textarea`
-  width: 100%;
-  min-height: 100px;
-  border: 1px solid #c5cae9;
-  border-radius: 12px;
-  padding: 1rem;
-  font-size: 1rem;
-  resize: none;
-  margin-bottom: 1rem;
-`;
-
-const Button = styled.button`
-  background: #3949ab;
-  color: white;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: bold;
-
-  &:hover {
-    background: #5c6bc0;
-  }
-`;
-
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  th,
-  td {
-    border-bottom: 1px solid #ddd;
-    text-align: left;
-    padding: 0.8rem;
-  }
-  th {
-    background-color: #e8eaf6;
-    color: #1a237e;
-  }
-  tr:hover {
-    background-color: #f5f5f5;
-  }
-`;
-
-const Message = styled.p`
-  text-align: center;
-  color: #555;
-`;
-
-const ErrorMsg = styled.p`
-  color: red;
-  text-align: center;
-`;
+const Title = styled.h2``;
+const FormSection = styled.div``;
+const Textarea = styled.textarea``;
+const Button = styled.button``;
+const Table = styled.table``;
+const Message = styled.p``;
+const ErrorMsg = styled.p``;

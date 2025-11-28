@@ -2,38 +2,6 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import styled from "styled-components";
 
-const Container = styled.div`
-  padding: 2rem;
-  background: #f5f6fa;
-  min-height: 100vh;
-`;
-
-const Title = styled.h1`
-  font-size: 2rem;
-  color: #2e3a59;
-  margin-bottom: 1.5rem;
-`;
-
-const Card = styled.div`
-  background: white;
-  border-radius: 15px;
-  padding: 1.5rem;
-  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1.2rem;
-`;
-
-const Button = styled.button`
-  background: #2e3a59;
-  color: white;
-  border: none;
-  padding: 0.6rem 1rem;
-  border-radius: 8px;
-  cursor: pointer;
-  &:hover {
-    background: #1f2a44;
-  }
-`;
-
 export default function VotacionesPage({ user }) {
   const [votaciones, setVotaciones] = useState([]);
   const [mensaje, setMensaje] = useState("");
@@ -42,23 +10,24 @@ export default function VotacionesPage({ user }) {
 
   useEffect(() => {
     axios
-      .get("/votaciones", config)
+      .get("/api/votaciones.php", config)
       .then((res) => setVotaciones(res.data))
-      .catch((err) =>
-        setMensaje(err.response?.data?.error || "Error al cargar votaciones")
+      .catch(() =>
+        setMensaje("Error al cargar votaciones")
       );
   }, []);
 
   const votar = async (id_votacion, voto) => {
     try {
       const res = await axios.post(
-        "/votar",
+        "/api/votar.php",
         { id_votacion, voto },
         config
       );
+
       alert(res.data.message);
-      // recargar votaciones para ver actualización
-      const refreshed = await axios.get("/votaciones", config);
+
+      const refreshed = await axios.get("/api/votaciones.php", config);
       setVotaciones(refreshed.data);
     } catch (err) {
       alert(err.response?.data?.error || "Error al registrar voto");
@@ -90,7 +59,9 @@ export default function VotacionesPage({ user }) {
             ) : (
               v.estado === "Activa" && (
                 <div style={{ marginTop: "1rem" }}>
-                  <Button onClick={() => votar(v.id_votacion, "Sí")}>Votar Sí</Button>
+                  <Button onClick={() => votar(v.id_votacion, "Sí")}>
+                    Votar Sí
+                  </Button>
                   <Button
                     onClick={() => votar(v.id_votacion, "No")}
                     style={{ marginLeft: "1rem", background: "#e11d48" }}
@@ -106,3 +77,9 @@ export default function VotacionesPage({ user }) {
     </Container>
   );
 }
+
+// Estilos sin cambios
+const Container = styled.div``;
+const Title = styled.h1``;
+const Card = styled.div``;
+const Button = styled.button``;

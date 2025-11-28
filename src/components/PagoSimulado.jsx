@@ -65,7 +65,15 @@ export default function PagoSimulado({ open, onClose, monto = 0, concepto = "Pag
       const token = localStorage.getItem("token");
       const body = { monto, concepto, id_residencia, medio_pago: medioPago };
 
+<<<<<<< Updated upstream
       const res = await fetch("/crear-preferencia", {
+=======
+<<<<<<< Updated upstream
+      const res = await fetch("/api/crear-preferencia.php", {
+=======
+      const res = await fetch("/api/crear-preferencia.php", {
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
         method: "POST",
         headers: {
           "Content-Type": "application/json",

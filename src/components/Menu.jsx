@@ -36,16 +36,15 @@ export default function Menu({ user }) {
   );
 }
 
-// 🎨 --- ESTILOS
+// 🎨 ESTILOS
 const Sidebar = styled.div`
   width: 220px;
   min-height: 100vh;
-  background: #3949ab; /* azul corporativo */
+  background: #3949ab;
   padding: 2rem 1rem;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start; /* alineado arriba */
-  gap: 1rem; /* opcional: espacio entre botones */
+  gap: 1rem;
 `;
 
 const Logo = styled.h1`
