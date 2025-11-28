@@ -43,7 +43,7 @@ const handlePayment = async () => {
 
   try {
     // Crear preferencia en backend
-    const res = await fetch("http://localhost:3001/create_preference", {
+    const res = await fetch("/create_preference", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amount, resident_id: residentId }),

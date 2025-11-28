@@ -18,7 +18,7 @@ export default function PaymentPage({ user }) {
 
   useEffect(() => {
     axios
-      .get("http://localhost:3001/pagos", {
+      .get("/pagos", {
         headers: { Authorization: `Bearer ${user.token}` },
       })
       .then((res) => {
@@ -50,7 +50,7 @@ export default function PaymentPage({ user }) {
         id_residencia: user.id_residencia,
       };
 
-      await axios.post("http://localhost:3001/crear-preferencia", body, {
+      await axios.post("/crear-preferencia", body, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
 
@@ -74,7 +74,7 @@ export default function PaymentPage({ user }) {
   const handleVerPDF = async (linea_captura) => {
     try {
       const res = await axios.get(
-        `http://localhost:3001/verificar-pago/${linea_captura}`,
+        `/verificar-pago/${linea_captura}`,
         { headers: { Authorization: `Bearer ${user.token}` }, responseType: "blob" }
       );
 

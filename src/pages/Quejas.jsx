@@ -16,8 +16,8 @@ export default function Quejas({ user }) {
   useEffect(() => {
     const url =
       user.rol === "admin"
-        ? "http://localhost:3001/quejas" // todas las quejas
-        : `http://localhost:3001/quejas?usuario=${user.id_habitante}`; // solo las del usuario
+        ? "/quejas" // todas las quejas
+        : `/quejas?usuario=${user.id_habitante}`; // solo las del usuario
 
     axios
       .get(url, config)
@@ -34,12 +34,12 @@ export default function Quejas({ user }) {
   const enviarQueja = () => {
     if (!descripcion.trim()) return alert("Escribe una descripción");
     axios
-      .post("http://localhost:3001/quejas", { descripcion }, config)
+      .post("/quejas", { descripcion }, config)
       .then(() => {
         alert("✅ Queja enviada correctamente");
         setDescripcion("");
         // Refrescar lista
-        return axios.get("http://localhost:3001/quejas", config);
+        return axios.get("/quejas", config);
       })
       .then((res) => setQuejas(res.data))
       .catch((err) => alert(err.response?.data?.error || err.message));

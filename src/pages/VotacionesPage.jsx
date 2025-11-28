@@ -42,7 +42,7 @@ export default function VotacionesPage({ user }) {
 
   useEffect(() => {
     axios
-      .get("http://localhost:3001/votaciones", config)
+      .get("/votaciones", config)
       .then((res) => setVotaciones(res.data))
       .catch((err) =>
         setMensaje(err.response?.data?.error || "Error al cargar votaciones")
@@ -52,13 +52,13 @@ export default function VotacionesPage({ user }) {
   const votar = async (id_votacion, voto) => {
     try {
       const res = await axios.post(
-        "http://localhost:3001/votar",
+        "/votar",
         { id_votacion, voto },
         config
       );
       alert(res.data.message);
       // recargar votaciones para ver actualización
-      const refreshed = await axios.get("http://localhost:3001/votaciones", config);
+      const refreshed = await axios.get("/votaciones", config);
       setVotaciones(refreshed.data);
     } catch (err) {
       alert(err.response?.data?.error || "Error al registrar voto");

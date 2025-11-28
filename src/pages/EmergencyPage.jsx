@@ -12,7 +12,7 @@ export default function EmergencyPage({ user }) {
     if (!user?.token) return;
 
     // Traer emergencias si es admin o para su propio apartamento
-    fetch("http://localhost:3001/emergencias", {
+    fetch("/emergencias", {
       headers: { "Authorization": `Bearer ${user.token}` },
     })
       .then(res => {
@@ -41,7 +41,7 @@ export default function EmergencyPage({ user }) {
     }
 
     try {
-      const res = await fetch("http://localhost:3001/emergencias", {
+      const res = await fetch("/emergencias", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -65,7 +65,7 @@ export default function PagoSimulado({ open, onClose, monto = 0, concepto = "Pag
       const token = localStorage.getItem("token");
       const body = { monto, concepto, id_residencia, medio_pago: medioPago };
 
-      const res = await fetch("http://localhost:3001/crear-preferencia", {
+      const res = await fetch("/crear-preferencia", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
